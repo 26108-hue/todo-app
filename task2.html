@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tasks 🎡</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ─── 놀이공원 배경 ─────────────────────────────────────── */
+
+    body {
+      background: linear-gradient(180deg,
+        #060620 0%,
+        #0e0a40 35%,
+        #1c1060 65%,
+        #2a1568 100%
+      );
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    #park-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    /* 별 */
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle var(--dur, 2s) ease-in-out infinite alternate;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes twinkle {
+      from { opacity: 0.15; transform: scale(0.8); }
+      to   { opacity: 0.9;  transform: scale(1.3); }
+    }
+
+    /* 상단 전구 줄 */
+    .bulb-string {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      padding: 0 6px;
+    }
+
+    .bulb-string::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .bulb {
+      width: 11px;
+      height: 15px;
+      border-radius: 50% 50% 45% 45%;
+      flex-shrink: 0;
+      animation: bulb-blink var(--dur, 1.2s) ease-in-out infinite alternate;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes bulb-blink {
+      from { opacity: 0.3; }
+      to   { opacity: 1; filter: drop-shadow(0 0 5px currentColor); }
+    }
+
+    /* 대관람차 */
+    .ferris-wheel-wrap {
+      position: absolute;
+      right: 2%;
+      bottom: 0;
+      width: min(230px, 20vw);
+      opacity: 0.88;
+    }
+
+    .fw-rotate {
+      animation: fw-spin 14s linear infinite;
+      transform-origin: 100px 100px;
+    }
+
+    @keyframes fw-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* 풍선 */
+    .balloon {
+      position: absolute;
+      width: 26px;
+      height: 33px;
+      border-radius: 50%;
+      animation: balloon-float var(--dur, 5s) ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    .balloon::after {
+      content: '';
+      position: absolute;
+      bottom: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 15px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    @keyframes balloon-float {
+      0%, 100% { transform: translateY(0)   rotate(-4deg); }
+      50%       { transform: translateY(-18px) rotate(4deg); }
+    }
+
+    /* 지면 */
+    .ground {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 55px;
+      background: linear-gradient(to top, rgba(20, 5, 60, 0.9), transparent);
+    }
+
+    /* 텐트 */
+    .tent {
+      position: absolute;
+      bottom: 0;
+      width: 0; height: 0;
+      border-left: solid transparent;
+      border-right: solid transparent;
+      border-bottom: solid;
+    }
+
+    /* 카드 */
+    .card {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.93) !important;
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      box-shadow:
+        0 8px 48px rgba(0, 0, 0, 0.55),
+        0 0 80px rgba(120, 0, 255, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    /* 하단 링크 */
+    .park-nav {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-top: 10px;
+      padding-bottom: 24px;
+    }
+
+    .park-nav a {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.82rem;
+      text-decoration: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: color 0.2s;
+    }
+
+    .park-nav a:hover { color: #ffd700; }
+  </style>
+</head>
+<body>
+
+  <!-- ─── 배경 장식 ──────────────────────────────────────────── -->
+  <div id="park-bg">
+
+    <div class="bulb-string" id="bulbString"></div>
+
+    <!-- 대관람차 SVG -->
+    <svg class="ferris-wheel-wrap" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg">
+      <!-- 지지대 -->
+      <line x1="100" y1="108" x2="78"  y2="250" stroke="rgba(255,200,50,0.55)" stroke-width="5"/>
+      <line x1="100" y1="108" x2="122" y2="250" stroke="rgba(255,200,50,0.55)" stroke-width="5"/>
+      <line x1="84"  y1="200" x2="116" y2="200" stroke="rgba(255,200,50,0.45)" stroke-width="3"/>
+
+      <!-- 회전 그룹 -->
+      <g class="fw-rotate">
+        <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,200,50,0.85)" stroke-width="5"/>
+        <circle cx="100" cy="100" r="54" fill="none" stroke="rgba(255,200,50,0.3)"  stroke-width="2"/>
+
+        <!-- 바퀴살 8개 -->
+        <line x1="100" y1="100" x2="100" y2="12"  stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="188" y2="100" stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="100" y2="188" stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="12"  y2="100" stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="162" y2="38"  stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="162" y2="162" stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="38"  y2="162" stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+        <line x1="100" y1="100" x2="38"  y2="38"  stroke="rgba(255,200,50,0.5)" stroke-width="2"/>
+
+        <!-- 곤돌라 8개 -->
+        <rect x="92" y="4"    width="16" height="13" rx="3" fill="#ff6b6b" opacity="0.92"/>
+        <rect x="180" y="93"  width="16" height="13" rx="3" fill="#ffd700" opacity="0.92"/>
+        <rect x="92" y="181"  width="16" height="13" rx="3" fill="#4ecdc4" opacity="0.92"/>
+        <rect x="4"  y="93"   width="16" height="13" rx="3" fill="#ff8c42" opacity="0.92"/>
+        <rect x="155" y="30"  width="16" height="13" rx="3" fill="#c44dff" opacity="0.92"/>
+        <rect x="155" y="155" width="16" height="13" rx="3" fill="#7efff5" opacity="0.92"/>
+        <rect x="29"  y="155" width="16" height="13" rx="3" fill="#ff6bff" opacity="0.92"/>
+        <rect x="29"  y="30"  width="16" height="13" rx="3" fill="#ff9f43" opacity="0.92"/>
+      </g>
+
+      <!-- 중심 허브 -->
+      <circle cx="100" cy="100" r="9" fill="#ffd700"/>
+      <circle cx="100" cy="100" r="4" fill="#fff"/>
+    </svg>
+
+    <!-- 풍선 -->
+    <div class="balloon" style="background:#ff6b6b; left:4%;  bottom:28%; --dur:5s;  --delay:0s;"></div>
+    <div class="balloon" style="background:#ffd700; left:7%;  bottom:42%; --dur:7s;  --delay:1.2s;"></div>
+    <div class="balloon" style="background:#c44dff; left:2%;  bottom:58%; --dur:6s;  --delay:2.5s;"></div>
+    <div class="balloon" style="background:#4ecdc4; left:89%; bottom:33%; --dur:5.5s;--delay:0.8s;"></div>
+    <div class="balloon" style="background:#ff8c42; left:92%; bottom:46%; --dur:8s;  --delay:1.8s;"></div>
+
+    <!-- 지면 -->
+    <div class="ground"></div>
+
+    <!-- 텐트 -->
+    <div class="tent" style="left:4%;  border-left-width:34px;border-right-width:34px;border-bottom-width:52px;border-bottom-color:rgba(210,40,40,0.55);"></div>
+    <div class="tent" style="left:11%; border-left-width:26px;border-right-width:26px;border-bottom-width:42px;border-bottom-color:rgba(255,195,0,0.5);"></div>
+    <div class="tent" style="left:17%; border-left-width:30px;border-right-width:30px;border-bottom-width:48px;border-bottom-color:rgba(90,40,210,0.5);"></div>
+
+  </div>
+
+  <!-- ─── 메인 콘텐츠 ─────────────────────────────────────────── -->
+  <main class="card" aria-label="할 일 관리 앱">
+
+    <div class="app-header">
+      <h1 class="title">My Tasks 🎡</h1>
+      <div class="header-actions">
+        <button id="exportBtn" class="icon-btn" title="JSON으로 내보내기" aria-label="데이터 내보내기">↓</button>
+        <button id="importBtn" class="icon-btn" title="JSON 가져오기"    aria-label="데이터 가져오기">↑</button>
+        <input type="file" id="importFile" accept=".json" aria-hidden="true">
+        <div class="theme-control">
+          <span class="theme-icon" id="themeIcon" aria-hidden="true">🌙</span>
+          <label class="theme-toggle" title="다크/라이트 모드 (Alt+D)">
+            <input type="checkbox" id="themeCheckbox" aria-label="다크 모드 토글">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <section class="dashboard" aria-label="진행률 대시보드">
+      <div class="stat-row">
+        <span class="stat-label" id="progressLabel">전체 진행률</span>
+        <span class="stat-value" id="overallStat" aria-live="polite">0 / 0 완료</span>
+      </div>
+      <div
+        class="progress-track"
+        id="progressBar"
+        role="progressbar"
+        aria-labelledby="progressLabel"
+        aria-valuenow="0"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <div class="progress-fill" id="overallFill" style="width: 0%"></div>
+      </div>
+      <p class="motivation-msg" id="motivationMsg" aria-live="polite">할 일을 추가하면 진행률이 표시돼요 ✍️</p>
+      <div class="cat-grid" id="catGrid" aria-label="카테고리별 진행률"></div>
+    </section>
+
+    <div class="input-row" role="group" aria-label="할 일 추가">
+      <input
+        type="text"
+        id="todoInput"
+        class="todo-input"
+        placeholder="할 일을 입력하세요... (Alt+N)"
+        autocomplete="off"
+        maxlength="200"
+        aria-label="할 일 내용 입력"
+        aria-describedby="dupeWarning"
+      />
+      <select id="categorySelect" class="category-select" aria-label="카테고리 선택">
+        <option value="work">업무</option>
+        <option value="personal">개인</option>
+        <option value="study">공부</option>
+      </select>
+      <button id="addBtn" class="add-btn">추가</button>
+    </div>
+    <p class="dupe-warning" id="dupeWarning" role="alert" hidden>⚠️ 이미 같은 내용의 할 일이 있어요.</p>
+
+    <div class="toolbar" role="toolbar" aria-label="목록 도구">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input type="search" id="searchInput" class="search-input" placeholder="검색..." aria-label="할 일 검색">
+      </div>
+      <select id="sortSelect" class="sort-select" aria-label="정렬 기준">
+        <option value="default">최신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="category">카테고리순</option>
+        <option value="alpha">가나다순</option>
+      </select>
+      <button id="clearCompletedBtn" class="clear-btn" aria-label="완료된 항목 모두 삭제">완료 삭제</button>
+    </div>
+
+    <div class="filter-bar" id="filterBar" role="tablist" aria-label="카테고리 필터">
+      <button class="filter-btn active" data-filter="all"      role="tab" aria-selected="true">전체</button>
+      <button class="filter-btn"        data-filter="work"     role="tab" aria-selected="false">업무</button>
+      <button class="filter-btn"        data-filter="personal" role="tab" aria-selected="false">개인</button>
+      <button class="filter-btn"        data-filter="study"    role="tab" aria-selected="false">공부</button>
+    </div>
+
+    <ul
+      id="todoList"
+      class="todo-list"
+      aria-label="할 일 목록"
+      aria-live="polite"
+      aria-relevant="additions removals"
+    ></ul>
+
+    <p id="emptyMsg" class="empty-msg" aria-live="polite" hidden>할 일이 없습니다. 추가해보세요!</p>
+
+  </main>
+
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <span id="snackbarMsg"></span>
+    <button id="snackbarAction" class="snackbar-action-btn" hidden></button>
+    <button id="snackbarDismiss" class="snackbar-dismiss" aria-label="알림 닫기">✕</button>
+  </div>
+
+  <script>
+    // 별 생성
+    const parkBg = document.getElementById('park-bg');
+    for (let i = 0; i < 130; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      const sz = (Math.random() * 2.5 + 0.4).toFixed(1);
+      s.style.cssText =
+        'width:' + sz + 'px;height:' + sz + 'px;' +
+        'top:'  + (Math.random() * 82).toFixed(1) + '%;' +
+        'left:' + (Math.random() * 100).toFixed(1) + '%;' +
+        '--dur:'   + (Math.random() * 3 + 1).toFixed(1) + 's;' +
+        '--delay:' + (Math.random() * 4).toFixed(1) + 's;';
+      parkBg.appendChild(s);
+    }
+
+    // 전구 줄 생성
+    const COLORS = ['#ff6b6b','#ffd700','#4ecdc4','#ff8c42','#c44dff','#7efff5','#ff6bff'];
+    const bulbEl = document.getElementById('bulbString');
+    for (let i = 0; i < 45; i++) {
+      const b = document.createElement('div');
+      b.className = 'bulb';
+      const c = COLORS[i % COLORS.length];
+      b.style.cssText =
+        'background:' + c + ';color:' + c + ';' +
+        '--dur:'   + (Math.random() * 1.5 + 0.5).toFixed(1) + 's;' +
+        '--delay:' + (Math.random() * 2).toFixed(1) + 's;';
+      bulbEl.appendChild(b);
+    }
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

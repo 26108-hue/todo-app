@@ -95,9 +95,21 @@
         </div>
 
         <div class="form-group">
-          <label for="dateInput" class="form-label">날짜 <span class="required" aria-label="필수">*</span></label>
-          <input type="date" id="dateInput" class="form-input" required aria-required="true" aria-describedby="dateError">
-          <span id="dateError" class="field-error" role="alert" hidden>날짜를 선택해주세요.</span>
+          <span class="form-label" id="dateLabel">날짜 <span class="required" aria-label="필수">*</span></span>
+          <div class="date-row" role="group" aria-labelledby="dateLabel">
+            <input type="number" id="yearInput" class="form-input date-year" min="1900" max="2100" placeholder="년도" aria-label="년도" inputmode="numeric">
+            <select id="monthSelect" class="form-input date-month" aria-label="월">
+              <option value="">월</option>
+              <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+              <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+              <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <select id="daySelect" class="form-input date-day" aria-label="일">
+              <option value="">일</option>
+            </select>
+          </div>
+          <span id="dateError" class="field-error" role="alert" hidden>년도, 월, 일을 모두 선택해주세요.</span>
         </div>
 
         <div class="form-group">
@@ -140,6 +152,11 @@
     <span id="snackbarMsg"></span>
   </div>
 
+  <!-- Fireworks -->
+  <canvas id="fireworksCanvas" aria-hidden="true" hidden></canvas>
+  <div id="ddayBanner" class="dday-banner" hidden aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="dday.js"></script>
 </body>
 </html>

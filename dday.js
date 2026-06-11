@@ -4,6 +4,60 @@
 
 const MAX_EVENTS = 20;
 
+/* ── Supabase ── */
+const SUPABASE_URL = 'https://nluhqgaqvxxriwcqxxyk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sdWhxZ2Fxdnh4cml3Y3F4eHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNTQwNDQsImV4cCI6MjA5NjczMDA0NH0.bYcfs4eWp3v-tFLesQZJIfH0vFQi9pdp1JnOU9eTQm4';
+let db = null;
+
+function initSupabase() {
+  if (window.supabase) {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}
+
+async function loadEventsFromDB() {
+  if (!db) return false;
+  try {
+    const { data, error } = await db
+      .from('dday_events')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    state.events = data.map(r => ({
+      id: r.id,
+      title: r.title,
+      date: r.date,
+      category: r.category,
+      isAnnual: r.is_annual,
+      createdAt: r.created_at,
+    }));
+    saveState();
+    return true;
+  } catch (e) {
+    console.warn('Supabase 로드 실패, localStorage 사용:', e);
+    return false;
+  }
+}
+
+async function insertEventToDB(event) {
+  if (!db) return;
+  const { error } = await db.from('dday_events').insert({
+    id: event.id,
+    title: event.title,
+    date: event.date,
+    category: event.category,
+    is_annual: event.isAnnual,
+    created_at: event.createdAt,
+  });
+  if (error) console.error('Supabase insert 실패:', error);
+}
+
+async function removeEventFromDB(id) {
+  if (!db) return;
+  const { error } = await db.from('dday_events').delete().eq('id', id);
+  if (error) console.error('Supabase delete 실패:', error);
+}
+
 const CATEGORIES = [
   { id: 'exam',        emoji: '📝', label: '시험' },
   { id: 'study',       emoji: '📚', label: '공부' },
@@ -239,6 +293,44 @@ function toggleTheme() {
   saveState();
 }
 
+/* ── Date Picker Helpers ── */
+function getDaysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function updateDayOptions() {
+  const daySelect = document.getElementById('daySelect');
+  const year = parseInt(document.getElementById('yearInput').value) || new Date().getFullYear();
+  const month = parseInt(document.getElementById('monthSelect').value);
+  const prevDay = parseInt(daySelect.value) || 0;
+
+  const max = month ? getDaysInMonth(year, month) : 31;
+  daySelect.innerHTML = '<option value="">일</option>';
+  for (let d = 1; d <= max; d++) {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `${d}일`;
+    if (d === prevDay) opt.selected = true;
+    daySelect.appendChild(opt);
+  }
+}
+
+function getDateValue() {
+  const y = document.getElementById('yearInput').value.trim();
+  const m = document.getElementById('monthSelect').value;
+  const d = document.getElementById('daySelect').value;
+  if (!y || !m || !d) return '';
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function setDateInputs(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  document.getElementById('yearInput').value = y;
+  document.getElementById('monthSelect').value = m;
+  updateDayOptions();
+  document.getElementById('daySelect').value = d;
+}
+
 /* ── Modal ── */
 function openModal() {
   const modal = document.getElementById('modal');
@@ -247,7 +339,9 @@ function openModal() {
   document.getElementById('ddayForm').reset();
   document.getElementById('charCount').textContent = '0 / 30';
   document.getElementById('titleInput').classList.remove('is-invalid');
-  document.getElementById('dateInput').classList.remove('is-invalid');
+  ['yearInput', 'monthSelect', 'daySelect'].forEach(id =>
+    document.getElementById(id).classList.remove('is-invalid')
+  );
   document.getElementById('titleError').hidden = true;
   document.getElementById('dateError').hidden = true;
 
@@ -258,8 +352,7 @@ function openModal() {
   // Default date to today
   const today = new Date();
   const pad = n => String(n).padStart(2, '0');
-  document.getElementById('dateInput').value =
-    `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  setDateInputs(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
 
   modal.hidden = false;
   requestAnimationFrame(() => document.getElementById('titleInput').focus());
@@ -306,18 +399,24 @@ function getSelectedCat() {
 function addEvent({ title, date, category, isAnnual }) {
   if (state.events.length >= MAX_EVENTS) return;
 
-  state.events.push({
+  const newEvent = {
     id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
     title: title.trim(),
     date,
     category,
     isAnnual,
     createdAt: Date.now(),
-  });
+  };
 
+  state.events.push(newEvent);
   saveState();
   render();
   showSnack(`"${title}" D-Day가 추가됐어요 ✅`);
+  insertEventToDB(newEvent);
+
+  if (computeDiff(newEvent) === 0) {
+    setTimeout(() => FW.launch(title), 400);
+  }
 }
 
 function deleteEvent(id) {
@@ -327,6 +426,7 @@ function deleteEvent(id) {
   saveState();
   render();
   showSnack(`"${ev.title}"이(가) 삭제됐어요`);
+  removeEventFromDB(id);
 }
 
 /* ── Export / Import ── */
@@ -385,8 +485,227 @@ function scheduleMidnight() {
   const ms = next - now + 1000;
   midnightTimer = setTimeout(() => {
     render();
+    checkAndLaunchFireworks();
     scheduleMidnight();
   }, ms);
+}
+
+/* ══════════════════════════════════════════
+   FIREWORKS ENGINE
+══════════════════════════════════════════ */
+
+const FIREWORK_COLORS = [
+  '#ff6b6b', '#ffd700', '#4ecdc4', '#ff9f43', '#c44dff',
+  '#7efff5', '#ff6bff', '#5ac8fa', '#30d158', '#ff453a',
+  '#ff9ff3', '#54a0ff', '#5f27cd', '#01abc9',
+];
+
+const FW = {
+  canvas: null,
+  ctx: null,
+  particles: [],
+  rockets: [],
+  animId: null,
+  launchTimer: null,
+  bannerTimer: null,
+
+  init() {
+    this.canvas = document.getElementById('fireworksCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    window.addEventListener('resize', () => {
+      if (!this.canvas.hidden) this._resize();
+    });
+  },
+
+  _resize() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  },
+
+  launch(eventTitle) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    this._resize();
+    this.canvas.hidden = false;
+    this.particles = [];
+    this.rockets = [];
+
+    this._showBanner(eventTitle);
+
+    let count = 0;
+    clearInterval(this.launchTimer);
+    this.launchTimer = setInterval(() => {
+      this._spawnRocket();
+      if (++count >= 12) clearInterval(this.launchTimer);
+    }, 420);
+
+    if (!this.animId) {
+      this.animId = requestAnimationFrame(() => this._loop());
+    }
+  },
+
+  _showBanner(title) {
+    const banner = document.getElementById('ddayBanner');
+    banner.innerHTML = `
+      <div class="dday-banner-inner">
+        <span class="dday-banner-emoji">🎉</span>
+        <span class="dday-banner-title">D-Day!</span>
+        <span class="dday-banner-subtitle">${title ? escHtml(title) + ' 오늘이에요!' : '오늘이 D-Day예요!'}</span>
+      </div>
+    `;
+    banner.hidden = false;
+    banner.style.animation = '';
+    clearTimeout(this.bannerTimer);
+    this.bannerTimer = setTimeout(() => {
+      banner.style.animation = 'banner-out 0.35s ease forwards';
+      setTimeout(() => {
+        banner.hidden = true;
+        banner.style.animation = '';
+      }, 360);
+    }, 3200);
+  },
+
+  _spawnRocket() {
+    const w = this.canvas.width, h = this.canvas.height;
+    this.rockets.push({
+      x: w * (0.1 + Math.random() * 0.8),
+      y: h,
+      targetY: h * (0.06 + Math.random() * 0.42),
+      color: FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)],
+      trailTick: 0,
+    });
+  },
+
+  _explode(x, y, color) {
+    const count = 110 + Math.floor(Math.random() * 60);
+    const c2 = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+      const speed = Math.random() * 6 + 0.5;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: Math.random() > 0.45 ? color : c2,
+        alpha: 1,
+        radius: Math.random() * 3 + 0.7,
+        decay: Math.random() * 0.013 + 0.007,
+        gravity: 0.055 + Math.random() * 0.04,
+        glow: Math.random() > 0.4,
+      });
+    }
+
+    // Bright center flash
+    for (let i = 0; i < 22; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 2.5;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: '#ffffff',
+        alpha: 1,
+        radius: Math.random() * 1.8 + 0.5,
+        decay: 0.06,
+        gravity: 0.04,
+        glow: true,
+      });
+    }
+  },
+
+  _loop() {
+    const { ctx, canvas } = this;
+    // Fade trail (not full clear = motion blur effect)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Rockets
+    const nextRockets = [];
+    for (const r of this.rockets) {
+      const totalDist = canvas.height - r.targetY;
+      const remaining = r.y - r.targetY;
+      const t = 1 - remaining / totalDist;
+      const speed = -(totalDist * 0.042) * (1 - t * 0.25);
+      r.y += speed;
+
+      r.trailTick++;
+      if (r.trailTick % 2 === 0) {
+        this.particles.push({
+          x: r.x + (Math.random() - 0.5) * 3,
+          y: r.y + 8,
+          vx: (Math.random() - 0.5) * 0.9,
+          vy: Math.random() * 1.8 + 0.5,
+          color: r.color,
+          alpha: 0.75,
+          radius: 2,
+          decay: 0.05,
+          gravity: 0.03,
+          glow: false,
+        });
+      }
+
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fff';
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = r.color;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      if (r.y <= r.targetY) {
+        this._explode(r.x, r.y, r.color);
+      } else {
+        nextRockets.push(r);
+      }
+    }
+    this.rockets = nextRockets;
+
+    // Particles
+    const nextParticles = [];
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.984;
+      p.alpha -= p.decay;
+
+      if (p.alpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        if (p.glow) {
+          ctx.shadowBlur = 9;
+          ctx.shadowColor = p.color;
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        nextParticles.push(p);
+      }
+    }
+    this.particles = nextParticles;
+
+    if (this.particles.length > 0 || this.rockets.length > 0) {
+      this.animId = requestAnimationFrame(() => this._loop());
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.canvas.hidden = true;
+      this.animId = null;
+    }
+  },
+};
+
+/* ── Check & launch fireworks for today's D-Days ── */
+function checkAndLaunchFireworks() {
+  const todayEvents = state.events.filter(e => computeDiff(e) === 0);
+  if (!todayEvents.length) return;
+  const title = todayEvents.length === 1
+    ? todayEvents[0].title
+    : `${todayEvents[0].title} 외 ${todayEvents.length - 1}개`;
+  FW.launch(title);
 }
 
 /* ── Event Delegation ── */
@@ -413,9 +732,9 @@ document.getElementById('ddayForm').addEventListener('submit', e => {
   e.preventDefault();
 
   const titleInput = document.getElementById('titleInput');
-  const dateInput = document.getElementById('dateInput');
   const titleError = document.getElementById('titleError');
   const dateError = document.getElementById('dateError');
+  const dateValue = getDateValue();
 
   let valid = true;
 
@@ -429,13 +748,20 @@ document.getElementById('ddayForm').addEventListener('submit', e => {
     titleError.hidden = true;
   }
 
-  if (!dateInput.value) {
-    dateInput.classList.add('is-invalid');
+  if (!dateValue) {
+    if (!document.getElementById('yearInput').value)
+      document.getElementById('yearInput').classList.add('is-invalid');
+    if (!document.getElementById('monthSelect').value)
+      document.getElementById('monthSelect').classList.add('is-invalid');
+    if (!document.getElementById('daySelect').value)
+      document.getElementById('daySelect').classList.add('is-invalid');
     dateError.hidden = false;
-    if (valid) dateInput.focus();
+    if (valid) document.getElementById('yearInput').focus();
     valid = false;
   } else {
-    dateInput.classList.remove('is-invalid');
+    ['yearInput', 'monthSelect', 'daySelect'].forEach(id =>
+      document.getElementById(id).classList.remove('is-invalid')
+    );
     dateError.hidden = true;
   }
 
@@ -443,13 +769,17 @@ document.getElementById('ddayForm').addEventListener('submit', e => {
 
   addEvent({
     title: titleInput.value.trim(),
-    date: dateInput.value,
+    date: dateValue,
     category: getSelectedCat(),
     isAnnual: document.getElementById('annualCheck').checked,
   });
 
   closeModal();
 });
+
+/* ── Date Picker Events ── */
+document.getElementById('yearInput').addEventListener('input', updateDayOptions);
+document.getElementById('monthSelect').addEventListener('change', updateDayOptions);
 
 /* ── Char Counter ── */
 document.getElementById('titleInput').addEventListener('input', function () {
@@ -511,9 +841,18 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 });
 
 /* ── Init ── */
-loadState();
+loadState();                // localStorage 먼저 로드 (즉시 표시)
 applyTheme(state.theme);
 document.getElementById('sortSelect').value = state.sortBy;
 buildCatPicker();
+FW.init();
+initSupabase();
 render();
+
+// Supabase에서 최신 데이터 로드 (비동기)
+loadEventsFromDB().then(ok => {
+  render();
+  checkAndLaunchFireworks();
+});
+
 scheduleMidnight();

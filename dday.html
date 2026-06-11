@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D-Day Counter</title>
+  <link rel="stylesheet" href="dday.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="brand-icon" aria-hidden="true">📅</span>
+        <h1 class="app-title">D-Day</h1>
+      </div>
+      <div class="header-actions">
+        <button id="exportBtn" class="icon-btn" title="JSON으로 내보내기" aria-label="데이터 내보내기">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button id="importBtn" class="icon-btn" title="JSON 가져오기" aria-label="데이터 가져오기">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <input type="file" id="importFile" accept=".json" hidden aria-hidden="true">
+        <button id="themeBtn" class="icon-btn theme-btn" aria-label="테마 전환">
+          <span id="themeIcon" aria-hidden="true">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main" id="main">
+
+    <div class="toolbar" role="toolbar" aria-label="검색 및 정렬">
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="search" id="searchInput" class="search-input" placeholder="이벤트 검색..." aria-label="이벤트 검색" autocomplete="off">
+      </div>
+      <select id="sortSelect" class="sort-select" aria-label="정렬 기준">
+        <option value="dday">D-Day순</option>
+        <option value="recent">최신 등록순</option>
+        <option value="oldest">오래된 등록순</option>
+        <option value="alpha">가나다순</option>
+      </select>
+    </div>
+
+    <div id="limitMsg" class="limit-msg" role="alert" hidden>
+      최대 20개까지 추가할 수 있어요.
+    </div>
+
+    <div id="cardGrid" class="card-grid" role="list" aria-label="D-Day 카드 목록" aria-live="polite" aria-relevant="additions removals"></div>
+
+    <div id="emptyState" class="empty-state" hidden aria-live="polite">
+      <div class="empty-icon" aria-hidden="true">📅</div>
+      <p class="empty-title">등록된 D-Day가 없어요</p>
+      <p class="empty-sub">아래 <strong>+</strong> 버튼을 눌러 첫 번째 D-Day를 추가해보세요!</p>
+    </div>
+
+    <div id="noResult" class="empty-state" hidden aria-live="polite">
+      <div class="empty-icon" aria-hidden="true">🔍</div>
+      <p class="empty-title">검색 결과가 없어요</p>
+      <p class="empty-sub">다른 키워드로 검색해보세요.</p>
+    </div>
+
+  </main>
+
+  <!-- FAB -->
+  <button id="fabBtn" class="fab" aria-label="D-Day 추가">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+
+  <!-- Add Modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">D-Day 추가</h2>
+        <button id="modalClose" class="icon-btn" aria-label="모달 닫기">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form id="ddayForm" class="modal-form" novalidate>
+        <div class="form-group">
+          <label for="titleInput" class="form-label">제목 <span class="required" aria-label="필수">*</span></label>
+          <input type="text" id="titleInput" class="form-input" placeholder="예: 수능, 생일, 여행 출발" maxlength="30" autocomplete="off" required aria-required="true" aria-describedby="charCount">
+          <div class="input-meta">
+            <span id="titleError" class="field-error" role="alert" hidden>제목을 입력해주세요.</span>
+            <span id="charCount" class="char-count" aria-live="polite">0 / 30</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="dateInput" class="form-label">날짜 <span class="required" aria-label="필수">*</span></label>
+          <input type="date" id="dateInput" class="form-input" required aria-required="true" aria-describedby="dateError">
+          <span id="dateError" class="field-error" role="alert" hidden>날짜를 선택해주세요.</span>
+        </div>
+
+        <div class="form-group">
+          <span class="form-label" id="catLabel">카테고리</span>
+          <div id="catPicker" class="cat-picker" role="radiogroup" aria-labelledby="catLabel"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="check-label">
+            <input type="checkbox" id="annualCheck" class="check-input" aria-describedby="annualDesc">
+            <span class="check-custom" aria-hidden="true"></span>
+            <span>매년 반복</span>
+          </label>
+          <p id="annualDesc" class="form-hint">활성화하면 매년 같은 날짜로 D-Day를 계산해요.</p>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelBtn" class="cancel-btn">취소</button>
+          <button type="submit" id="submitBtn" class="submit-btn">추가하기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="deleteTitle" aria-describedby="deleteDesc" hidden>
+    <div class="modal-overlay" id="deleteOverlay"></div>
+    <div class="modal-box modal-box--sm">
+      <h2 id="deleteTitle" class="modal-title">삭제 확인</h2>
+      <p id="deleteDesc" class="delete-desc">이 D-Day를 삭제할까요?</p>
+      <div class="modal-footer">
+        <button id="deleteCancelBtn" class="cancel-btn">취소</button>
+        <button id="deleteConfirmBtn" class="danger-btn">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snackbar -->
+  <div id="snackbar" class="snackbar" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <span id="snackbarMsg"></span>
+  </div>
+
+  <script src="dday.js"></script>
+</body>
+</html>
